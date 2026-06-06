@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Controle de Dívidas</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0f1115;--paper:#171a21;--paper2:#1e222b;--line:#2a2f3a;--txt:#e7e9ee;--mut:#8b93a3;--accent:#4ade80;--red:#f87171;--amber:#fbbf24}
+body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--txt);line-height:1.5;padding:24px}
+.wrap{max-width:1000px;margin:0 auto}
+h1{font-size:22px;font-weight:700;margin-bottom:4px}
+.sub{color:var(--mut);font-size:14px;margin-bottom:20px}
+.grid{display:grid;grid-template-columns:1fr 260px;gap:20px;align-items:start}
+@media(max-width:760px){.grid{grid-template-columns:1fr}}
+.alert{border-radius:10px;padding:12px 16px;margin-bottom:20px;font-size:14px;font-weight:600}
+.alert.pend{background:rgba(251,191,36,.12);border:1px solid var(--amber);color:var(--amber)}
+.alert.done{background:rgba(74,222,128,.1);border:1px solid var(--accent);color:var(--accent)}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-bottom:16px}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:14px}
+.card .lbl{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px}
+.card .val{font-size:20px;font-weight:700;margin-top:6px}
+.card.ok .val{color:var(--accent)}.card.left .val{color:var(--red)}
+.bar{height:10px;background:var(--paper2);border-radius:6px;overflow:hidden;margin:4px 0 20px}
+.bar>i{display:block;height:100%;background:var(--accent);width:0;transition:width .4s}
+.panel{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:18px}
+.panel h2{font-size:14px;text-transform:uppercase;letter-spacing:.5px;color:var(--mut);margin-bottom:14px}
+.field{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.field label{font-size:14px;color:var(--mut);min-width:140px}
+input,select{background:var(--paper2);border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:8px 12px;font-size:15px}
+input[type=number]{width:130px}
+input:focus,select:focus{outline:none;border-color:var(--accent)}
+button{background:var(--accent);color:#06210f;border:none;border-radius:8px;padding:9px 16px;font-size:14px;font-weight:700;cursor:pointer}
+button.ghost{background:transparent;border:1px solid var(--line);color:var(--txt)}
+button.mini{padding:4px 10px;font-size:12px;background:transparent;border:1px solid var(--red);color:var(--red)}
+.hist{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line);font-size:14px}
+.hist:last-child{border-bottom:none}
+.hist .when{color:var(--mut);min-width:80px;text-transform:capitalize}
+.hist .val{font-weight:600;color:var(--accent);min-width:95px;font-variant-numeric:tabular-nums}
+.hist .obs{flex:1;color:var(--mut)}
+.empty{color:var(--mut);font-size:14px;padding:8px 0}
+.result{font-size:15px;margin-top:8px}.result b{color:var(--accent)}
+.muted{color:var(--mut);font-size:13px;margin-top:4px}
+.draft{font-size:12px;color:var(--amber);margin-left:8px}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
+aside.panel{position:sticky;top:24px;padding:16px}
+.it{display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:12.5px;padding:6px 0;border-bottom:1px solid var(--line)}
+.it:last-child{border-bottom:none}
+.it .n{color:var(--mut);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.it .v{font-variant-numeric:tabular-nums;flex-shrink:0}
+.it .x{cursor:pointer;color:var(--mut);font-size:14px;line-height:1;opacity:.4;flex-shrink:0;background:none;border:none;padding:0 2px}
+.it .x:hover{opacity:1;color:var(--red)}
+.it.tot{margin-top:8px;border-top:1px solid var(--line);border-bottom:none;padding-top:10px;font-weight:700;font-size:13.5px}
+.it.tot .n{color:var(--txt)}
+.additem{margin-top:14px;display:flex;flex-direction:column;gap:8px}
+.additem input{font-size:13px;padding:7px 10px;width:100%}
+.additem button{font-size:13px;padding:8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>Controle de Dívidas</h1>
+<div class="sub">Registros versionados em dados.js. Após registrar, baixe e commite no git.</div>
+<div id="statusMes" class="alert"></div>
+<div class="grid">
+<main>
+<div class="cards">
+  <div class="card"><div class="lbl">Total</div><div class="val" id="cTotal">-</div></div>
+  <div class="card ok"><div class="lbl">Pago</div><div class="val" id="cPago">-</div></div>
+  <div class="card left"><div class="lbl">Falta</div><div class="val" id="cFalta">-</div></div>
+  <div class="card"><div class="lbl">Quitado</div><div class="val" id="cPct">-</div></div>
+</div>
+<div class="bar"><i id="bar"></i></div>
+
+<div class="panel">
+  <h2>Registrar pagamento</h2>
+  <div class="field"><label>Valor pago (R$)</label><input type="number" id="pVal" min="0" step="0.01" placeholder="0,00"></div>
+  <div class="field"><label>Mês / Ano</label><select id="pMes"></select><input type="number" id="pAno" min="2024" max="2099" style="width:100px"></div>
+  <div class="field"><label>Observação</label><input type="text" id="pObs" placeholder="opcional" style="flex:1;min-width:180px"></div>
+  <button id="addBtn">Registrar pagamento</button>
+</div>
+
+<div class="panel">
+  <h2>Histórico de pagamentos <span id="draftFlag" class="draft"></span></h2>
+  <div id="hist"></div>
+  <div class="actions"><button id="downloadBtn" class="ghost">Baixar dados.js (commitar no git)</button></div>
+  <div class="muted">Substitua o dados.js do repo pelo baixado e faça commit. Aí os registros ficam salvos pra sempre.</div>
+</div>
+
+<div class="panel">
+  <h2>Previsão</h2>
+  <div class="field"><label>Parcela mensal (R$)</label><input type="number" id="parcela" value="200" min="1" step="10"></div>
+  <div class="result" id="planoTxt"></div>
+  <div class="muted" id="planoData"></div>
+</div>
+</main>
+
+<aside class="panel">
+  <h2>Itens do orçamento</h2>
+  <div id="itens"></div>
+  <div class="additem">
+    <input type="text" id="iNome" placeholder="Novo item">
+    <input type="number" id="iVal" min="0" step="0.01" placeholder="Valor (R$)">
+    <button id="iAdd">+ Acrescentar item</button>
+  </div>
+</aside>
+</div>
+</div>
+
+<script src="dados.js"></script>
+<script>
+const brl = n => n.toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
+const MES = ["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
+const KEY="controle_dividas_v2", KEYI="controle_dividas_itens_v2";
+const hoje=new Date();
+
+function mergeDraft(base, key, flag){
+  const draft=JSON.parse(localStorage.getItem(key)||"[]");
+  const map={}; base.forEach(o=>map[o.id]=o);
+  let d=false; draft.forEach(o=>{ if(!map[o.id]){ map[o.id]=o; d=true; } });
+  window[flag]=d;
+  return Object.values(map);
+}
+let pagamentos = mergeDraft(((window.DIVIDA||{}).pagamentos)||[], KEY, "__draftP").sort((a,b)=>(b.ano-a.ano)||(b.mes-a.mes));
+let itens = mergeDraft(((window.DIVIDA||{}).itens)||[], KEYI, "__draftI");
+
+function salvaDraft(arr, baseArr, key){
+  const baseIds=new Set((baseArr||[]).map(o=>o.id));
+  localStorage.setItem(key, JSON.stringify(arr.filter(o=>!baseIds.has(o.id))));
+}
+const totalDivida=()=>itens.reduce((s,i)=>s+(+i.v||0),0);
+const totalPago=()=>pagamentos.reduce((s,p)=>s+(+p.valor||0),0);
+
+function txtMeses(m){
+  if(!isFinite(m)||m<=0) return m===0?"está quitado":"valor inválido";
+  const anos=Math.floor(m/12), res=m%12;
+  let s=m+" mês"+(m>1?"es":"");
+  if(anos>0) s+=" ("+anos+" ano"+(anos>1?"s":"")+(res>0?" e "+res+" mês"+(res>1?"es":""):"")+")";
+  return s;
+}
+const dataFinal=m=>{ const d=new Date(); d.setMonth(d.getMonth()+m); return MES[d.getMonth()]+" de "+d.getFullYear(); };
+
+function renderItens(){
+  const box=document.getElementById("itens"); box.innerHTML="";
+  itens.forEach(it=>{
+    const r=document.createElement("div"); r.className="it";
+    r.innerHTML='<span class="n" title="'+it.n+'">'+it.n+'</span><span class="v">'+brl(it.v)+'</span><button class="x" data-id="'+it.id+'">&times;</button>';
+    box.appendChild(r);
+  });
+  const t=document.createElement("div"); t.className="it tot";
+  t.innerHTML='<span class="n">Total</span><span class="v">'+brl(totalDivida())+'</span>';
+  box.appendChild(t);
+  box.querySelectorAll(".x").forEach(b=>b.onclick=e=>{
+    itens=itens.filter(i=>String(i.id)!==String(e.target.dataset.id));
+    salvaDraft(itens, (window.DIVIDA||{}).itens, KEYI);
+    window.__draftI=true; renderItens(); render();
+  });
+}
+
+function render(){
+  const total=totalDivida(), pago=totalPago(), falta=Math.max(0,total-pago);
+  document.getElementById("cTotal").textContent=brl(total);
+  document.getElementById("cPago").textContent=brl(pago);
+  document.getElementById("cFalta").textContent=brl(falta);
+  const pct=total>0?Math.min(100,Math.round(pago/total*100)):0;
+  document.getElementById("cPct").textContent=pct+"%";
+  document.getElementById("bar").style.width=pct+"%";
+
+  const m=hoje.getMonth()+1, a=hoje.getFullYear();
+  const pagosMes=pagamentos.filter(p=>+p.mes===m && +p.ano===a);
+  const el=document.getElementById("statusMes");
+  if(falta<=0){ el.className="alert done"; el.textContent="Tudo quitado! Parabéns."; }
+  else if(pagosMes.length){ const t=pagosMes.reduce((s,p)=>s+(+p.valor||0),0);
+    el.className="alert done"; el.textContent="Mês atual ("+MES[m-1]+"/"+a+"): pago "+brl(t)+"."; }
+  else { el.className="alert pend"; el.textContent="Mês atual ("+MES[m-1]+"/"+a+"): pagamento ainda NÃO registrado."; }
+
+  const h=document.getElementById("hist"); h.innerHTML="";
+  if(!pagamentos.length) h.innerHTML='<div class="empty">Nenhum pagamento registrado ainda.</div>';
+  pagamentos.forEach(p=>{
+    const r=document.createElement("div"); r.className="hist";
+    r.innerHTML='<span class="when">'+MES[p.mes-1].slice(0,3)+"/"+p.ano+'</span><span class="val">'+brl(+p.valor)+'</span><span class="obs">'+(p.obs||"")+'</span><button class="mini" data-id="'+p.id+'">remover</button>';
+    h.appendChild(r);
+  });
+  h.querySelectorAll(".mini").forEach(b=>b.onclick=e=>{
+    pagamentos=pagamentos.filter(p=>String(p.id)!==String(e.target.dataset.id));
+    salvaDraft(pagamentos, (window.DIVIDA||{}).pagamentos, KEY); render();
+  });
+  document.getElementById("draftFlag").textContent=(window.__draftP||window.__draftI)?"(há registros não commitados)":"";
+
+  const parcela=+document.getElementById("parcela").value||0;
+  const meses=parcela>0?Math.ceil(falta/parcela):Infinity;
+  document.getElementById("planoTxt").innerHTML=falta<=0?"<b>Dívida quitada.</b>":"Pagando <b>"+brl(parcela)+"/mês</b>, quita em <b>"+txtMeses(meses)+"</b>.";
+  document.getElementById("planoData").textContent=(falta>0&&isFinite(meses))?"Previsão de fim: "+dataFinal(meses):"";
+}
+
+const sel=document.getElementById("pMes");
+MES.forEach((mn,i)=>{ const o=document.createElement("option"); o.value=i+1; o.textContent=mn; sel.appendChild(o); });
+sel.value=hoje.getMonth()+1;
+document.getElementById("pAno").value=hoje.getFullYear();
+
+document.getElementById("addBtn").onclick=()=>{
+  const v=parseFloat(document.getElementById("pVal").value);
+  if(!v||v<=0){ alert("Informe um valor válido."); return; }
+  pagamentos.push({id:Date.now(),valor:v,mes:+sel.value,ano:+document.getElementById("pAno").value,obs:document.getElementById("pObs").value.trim()});
+  pagamentos.sort((a,b)=>(b.ano-a.ano)||(b.mes-a.mes));
+  window.__draftP=true; salvaDraft(pagamentos,(window.DIVIDA||{}).pagamentos,KEY);
+  document.getElementById("pVal").value=""; document.getElementById("pObs").value="";
+  render();
+};
+
+document.getElementById("iAdd").onclick=()=>{
+  const n=document.getElementById("iNome").value.trim();
+  const v=parseFloat(document.getElementById("iVal").value);
+  if(!n||!v||v<=0){ alert("Informe nome e valor do item."); return; }
+  itens.push({id:Date.now(), n:n, v:v});
+  window.__draftI=true; salvaDraft(itens,(window.DIVIDA||{}).itens,KEYI);
+  document.getElementById("iNome").value=""; document.getElementById("iVal").value="";
+  renderItens(); render();
+};
+
+document.getElementById("downloadBtn").onclick=()=>{
+  const fmt=o=>JSON.stringify(o).replace(/"(\w+)":/g,"$1:");
+  const NL="\n";
+  const its=itens.map(i=>"    "+fmt(i)).join(","+NL);
+  const pgs=pagamentos.map(p=>"    "+fmt(p)).join(","+NL);
+  const out="// Fonte da verdade - versionada no git."+NL+NL+"window.DIVIDA = {"+NL+"  itens: ["+NL+its+NL+"  ],"+NL+"  pagamentos: ["+NL+pgs+NL+"  ]"+NL+"};"+NL;
+  const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([out],{type:"text/javascript"})); a.download="dados.js"; a.click();
+};
+
+document.getElementById("parcela").oninput=render;
+renderItens(); render();
+</script>
+</body>
+</html>
